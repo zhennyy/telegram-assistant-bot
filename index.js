@@ -26,8 +26,12 @@ const SYSTEM_PROMPT =
 // claude-opus-5 — самая мощная, но медленнее и дороже.
 const MODEL = 'claude-sonnet-5';
 
-// История диалога хранится в файле data/history.json — переживает перезапуск бота.
-const DATA_DIR = path.resolve('data');
+// История, напоминания и память хранятся в этой папке.
+// Локально это просто папка data/ рядом с проектом.
+// В облаке (Railway) сюда можно подключить постоянный диск (Volume) —
+// тогда переменная DATA_DIR в Variables должна указывать на путь монтирования (например /data),
+// и данные не будут стираться при пересборке.
+const DATA_DIR = process.env.DATA_DIR || path.resolve('data');
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
 const MAX_HISTORY_MESSAGES = 20; // сколько последних сообщений держать в контексте
 
