@@ -1,0 +1,16 @@
+{
+  "name": "telegram-claude-assistant",
+  "version": "1.0.0",
+  "description": "Личный ассистент в Telegram на базе Claude API",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3",
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}
