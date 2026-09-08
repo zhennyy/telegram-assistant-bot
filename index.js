@@ -71,6 +71,39 @@ function saveReminders() {
 
 const reminders = loadReminders();
 
+// Постоянная память — факты, которые не пропадают даже после /reset.
+// Формат: { "chatId": [{ id, text }] }
+const MEMORY_FILE = path.join(DATA_DIR, 'memory.json');
+
+function loadMemory() {
+  try {
+    return JSON.parse(fs.readFileSync(MEMORY_FILE, 'utf-8'));
+  } catch {
+    return {};
+  }
+}
+
+function saveMemory() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(MEMORY_FILE, JSON.stringify(memory, null, 2));
+}
+
+const memory = loadMemory();
+
+function getMemory(chatId) {
+  const key = String(chatId);
+  if (!memory[key]) memory[key] = [];
+  return memory[key];
+}
+
+// Собирает системный промпт с учётом сохранённых фактов о пользователе
+function buildSystemPrompt(chatId) {
+  const facts = getMemory(chatId);
+  if (facts.length === 0) return SYSTEM_PROMPT;
+  const factsText = facts.map((f) => `- ${f.text}`).join('\n');
+  return `${SYSTEM_PROMPT}\n\nВажные факты о пользователе (учитывай их в ответах):\n${factsText}`;
+}
+
 // Каждую минуту проверяем, не пора ли отправить напоминание.
 // Срабатывает один раз (в ближайшее совпадение времени), затем удаляется из списка.
 cron.schedule('* * * * *', () => {
@@ -99,8 +132,48 @@ bot.onText(/\/start/, (msg) => {
       '/reset — очистить историю диалога\n' +
       '/remind ЧЧ:ММ текст — поставить напоминание (например /remind 15:30 Позвонить маме)\n' +
       '/reminders — список активных напоминаний\n' +
-      '/cancelremind ID — отменить напоминание по номеру'
+      '/cancelremind ID — отменить напоминание по номеру\n' +
+      '/remember текст — запомнить факт надолго (например /remember у меня аллергия на орехи)\n' +
+      '/memory — что сохранено в памяти\n' +
+      '/forget ID — удалить факт из памяти'
   );
+});
+
+bot.onText(/\/remember (.+)/, (msg, match) => {
+  const chatId = msg.chat.id;
+  const text = match[1];
+  const facts = getMemory(chatId);
+
+  const fact = { id: Date.now().toString(36), text };
+  facts.push(fact);
+  saveMemory();
+
+  bot.sendMessage(chatId, `Запомнила ✅ (номер: ${fact.id})`);
+});
+
+bot.onText(/\/memory/, (msg) => {
+  const facts = getMemory(msg.chat.id);
+  if (facts.length === 0) {
+    bot.sendMessage(msg.chat.id, 'Пока ничего не сохранено. Добавь через /remember текст.');
+    return;
+  }
+  const list = facts.map((f) => `${f.id} — ${f.text}`).join('\n');
+  bot.sendMessage(msg.chat.id, `Сохранено в памяти:\n${list}`);
+});
+
+bot.onText(/\/forget (\S+)/, (msg, match) => {
+  const chatId = msg.chat.id;
+  const id = match[1];
+  const facts = getMemory(chatId);
+  const index = facts.findIndex((f) => f.id === id);
+
+  if (index === -1) {
+    bot.sendMessage(chatId, 'Не нашла факт с таким номером. Посмотри /memory.');
+    return;
+  }
+  facts.splice(index, 1);
+  saveMemory();
+  bot.sendMessage(chatId, 'Забыла ✅');
 });
 
 bot.onText(/\/remind (\d{1,2}):(\d{2}) (.+)/, (msg, match) => {
@@ -174,7 +247,7 @@ bot.on('message', async (msg) => {
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(chatId),
       messages: history,
     });
 
