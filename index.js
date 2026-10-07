@@ -13,7 +13,8 @@ if (!TELEGRAM_TOKEN || !ANTHROPIC_API_KEY) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+// TELEGRAM_API_ROOT — посредник для Telegram (нужен, если сервер в России)
+const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true, ...(process.env.TELEGRAM_API_ROOT ? { baseApiUrl: process.env.TELEGRAM_API_ROOT } : {}) });
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
 // Здесь можно настроить характер и роль ассистента
