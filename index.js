@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
-import TelegramBot from 'node-telegram-bot-api';
+import { Telegraf } from 'telegraf';
 import Anthropic from '@anthropic-ai/sdk';
 import cron from 'node-cron';
 
@@ -14,15 +14,17 @@ if (!TELEGRAM_TOKEN || !ANTHROPIC_API_KEY) {
 }
 
 // TELEGRAM_API_ROOT — посредник для Telegram (нужен, если сервер в России)
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true, ...(process.env.TELEGRAM_API_ROOT ? { baseApiUrl: process.env.TELEGRAM_API_ROOT.replace(/\/+$/, '') } : {}) });
+const bot = new Telegraf(TELEGRAM_TOKEN, process.env.TELEGRAM_API_ROOT ? { telegram: { apiRoot: process.env.TELEGRAM_API_ROOT.replace(/\/*$/, '/') } } : {});
+const send = (chatId, text) => bot.telegram.sendMessage(chatId, text).catch((e) => console.error('Не отправилось:', e.message));
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
 // Бот личный: отвечает только хозяйке и только в личной переписке.
 // OWNER_ID — твой Telegram ID (можно переопределить в .env).
 const OWNER_ID = String(process.env.OWNER_ID || '739258026');
 const isOwner = (msg) => msg?.chat?.type === 'private' && String(msg?.from?.id) === OWNER_ID;
-// Обёртка для команд: чужие сообщения молча игнорируются (и не тратят ключ Claude)
-const onCmd = (re, fn) => bot.onText(re, (msg, match) => { if (isOwner(msg)) fn(msg, match); });
+// Команды собираем в список; чужие сообщения молча игнорируются (и не тратят ключ Claude)
+const commands = [];
+const onCmd = (re, fn) => commands.push([re, fn]);
 const MAX_FACTS = 100, MAX_FACT_LEN = 500, MAX_REMINDERS = 100, MAX_MSG_LEN = 4000;
 
 // Здесь можно настроить характер и роль ассистента
@@ -127,7 +129,7 @@ cron.schedule('* * * * *', () => {
   if (due.length === 0) return;
 
   for (const r of due) {
-    bot.sendMessage(r.chatId, `⏰ Напоминание: ${r.text}`);
+    send(r.chatId, `⏰ Напоминание: ${r.text}`);
   }
 
   // Убираем сработавшие напоминания из списка
@@ -138,7 +140,7 @@ cron.schedule('* * * * *', () => {
 });
 
 onCmd(/^\/start\b/, (msg) => {
-  bot.sendMessage(
+  send(
     msg.chat.id,
     'Привет! Я твой личный ассистент на базе Claude. Просто напиши мне, что нужно 🙂\n\n' +
       'Команды:\n' +
@@ -156,23 +158,23 @@ onCmd(/^\/remember (.+)$/s, (msg, match) => {
   const chatId = msg.chat.id;
   const text = match[1].trim().slice(0, MAX_FACT_LEN);
   const facts = getMemory(chatId);
-  if (facts.length >= MAX_FACTS) return bot.sendMessage(chatId, `В памяти уже ${MAX_FACTS} фактов — удали лишние через /forget`);
+  if (facts.length >= MAX_FACTS) return send(chatId, `В памяти уже ${MAX_FACTS} фактов — удали лишние через /forget`);
 
   const fact = { id: Date.now().toString(36), text };
   facts.push(fact);
   saveMemory();
 
-  bot.sendMessage(chatId, `Запомнила ✅ (номер: ${fact.id})`);
+  send(chatId, `Запомнила ✅ (номер: ${fact.id})`);
 });
 
 onCmd(/^\/memory\b/, (msg) => {
   const facts = getMemory(msg.chat.id);
   if (facts.length === 0) {
-    bot.sendMessage(msg.chat.id, 'Пока ничего не сохранено. Добавь через /remember текст.');
+    send(msg.chat.id, 'Пока ничего не сохранено. Добавь через /remember текст.');
     return;
   }
   const list = facts.map((f) => `${f.id} — ${f.text}`).join('\n');
-  bot.sendMessage(msg.chat.id, `Сохранено в памяти:\n${list}`);
+  send(msg.chat.id, `Сохранено в памяти:\n${list}`);
 });
 
 onCmd(/^\/forget (\S+)$/, (msg, match) => {
@@ -182,12 +184,12 @@ onCmd(/^\/forget (\S+)$/, (msg, match) => {
   const index = facts.findIndex((f) => f.id === id);
 
   if (index === -1) {
-    bot.sendMessage(chatId, 'Не нашла факт с таким номером. Посмотри /memory.');
+    send(chatId, 'Не нашла факт с таким номером. Посмотри /memory.');
     return;
   }
   facts.splice(index, 1);
   saveMemory();
-  bot.sendMessage(chatId, 'Забыла ✅');
+  send(chatId, 'Забыла ✅');
 });
 
 onCmd(/^\/remind (\d{1,2}):(\d{2}) (.+)$/s, (msg, match) => {
@@ -195,12 +197,12 @@ onCmd(/^\/remind (\d{1,2}):(\d{2}) (.+)$/s, (msg, match) => {
   const minutes = match[2];
   const text = match[3].trim().slice(0, MAX_FACT_LEN);
   if (reminders.filter((r) => r.chatId === msg.chat.id).length >= MAX_REMINDERS) {
-    bot.sendMessage(msg.chat.id, `Уже ${MAX_REMINDERS} напоминаний — отмени лишние через /cancelremind`);
+    send(msg.chat.id, `Уже ${MAX_REMINDERS} напоминаний — отмени лишние через /cancelremind`);
     return;
   }
 
   if (Number(hours) > 23 || Number(minutes) > 59) {
-    bot.sendMessage(msg.chat.id, 'Похоже, время некорректно. Формат: /remind 15:30 текст');
+    send(msg.chat.id, 'Похоже, время некорректно. Формат: /remind 15:30 текст');
     return;
   }
 
@@ -213,7 +215,7 @@ onCmd(/^\/remind (\d{1,2}):(\d{2}) (.+)$/s, (msg, match) => {
   reminders.push(reminder);
   saveReminders();
 
-  bot.sendMessage(
+  send(
     msg.chat.id,
     `Готово ✅ Напомню в ${reminder.time}: «${text}» (номер: ${reminder.id})`
   );
@@ -222,35 +224,34 @@ onCmd(/^\/remind (\d{1,2}):(\d{2}) (.+)$/s, (msg, match) => {
 onCmd(/^\/reminders\b/, (msg) => {
   const own = reminders.filter((r) => r.chatId === msg.chat.id);
   if (own.length === 0) {
-    bot.sendMessage(msg.chat.id, 'Активных напоминаний нет.');
+    send(msg.chat.id, 'Активных напоминаний нет.');
     return;
   }
   const list = own.map((r) => `${r.id} — ${r.time} — ${r.text}`).join('\n');
-  bot.sendMessage(msg.chat.id, `Активные напоминания:\n${list}`);
+  send(msg.chat.id, `Активные напоминания:\n${list}`);
 });
 
 onCmd(/^\/cancelremind (\S+)$/, (msg, match) => {
   const id = match[1];
   const index = reminders.findIndex((r) => r.id === id && r.chatId === msg.chat.id);
   if (index === -1) {
-    bot.sendMessage(msg.chat.id, 'Не нашла напоминание с таким номером.');
+    send(msg.chat.id, 'Не нашла напоминание с таким номером.');
     return;
   }
   reminders.splice(index, 1);
   saveReminders();
-  bot.sendMessage(msg.chat.id, 'Напоминание отменено ✅');
+  send(msg.chat.id, 'Напоминание отменено ✅');
 });
 
 onCmd(/^\/reset\b/, (msg) => {
   histories[String(msg.chat.id)] = [];
   saveHistories();
-  bot.sendMessage(msg.chat.id, 'История диалога очищена ✅');
+  send(msg.chat.id, 'История диалога очищена ✅');
 });
 
-bot.on('message', async (msg) => {
-  if (!isOwner(msg)) return; // чужим не отвечаем
+async function chat(msg) {
   const text = msg.text?.slice(0, MAX_MSG_LEN);
-  if (!text || text.startsWith('/')) return; // команды обрабатываются отдельно выше
+  if (!text) return;
 
   const chatId = msg.chat.id;
   const history = getHistory(chatId);
@@ -260,7 +261,7 @@ bot.on('message', async (msg) => {
     history.splice(0, history.length - MAX_HISTORY_MESSAGES);
   }
 
-  bot.sendChatAction(chatId, 'typing');
+  bot.telegram.sendChatAction(chatId, 'typing').catch(() => {});
 
   try {
     const response = await anthropic.messages.create({
@@ -278,14 +279,32 @@ bot.on('message', async (msg) => {
     history.push({ role: 'assistant', content: reply });
     saveHistories();
 
-    await bot.sendMessage(chatId, reply);
+    await send(chatId, reply);
   } catch (err) {
-    console.error('Ошибка запроса к Claude:', err);
-    await bot.sendMessage(
+    console.error('Ошибка запроса к Claude:', err.status || err.message);
+    await send(
       chatId,
       'Упс, что-то пошло не так при обращении к Claude. Попробуй ещё раз чуть позже.'
     );
   }
-});
+}
 
+// Единая точка входа: только хозяйка, только личка; команды — по списку, остальное — в Claude
+bot.on('text', async (ctx) => {
+  const msg = ctx.message;
+  if (!isOwner(msg)) return; // чужим не отвечаем
+  if (msg.text.startsWith('/')) {
+    for (const [re, fn] of commands) {
+      const m = msg.text.match(re);
+      if (m) return fn(msg, m);
+    }
+    return;
+  }
+  await chat(msg);
+});
+bot.catch((err) => console.error('Ошибка бота:', err.message));
+
+bot.launch().catch((e) => { console.error('Не удалось подключиться к Telegram:', e.message); process.exit(1); });
 console.log('Бот запущен и слушает сообщения...');
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
