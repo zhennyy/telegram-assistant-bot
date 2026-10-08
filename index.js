@@ -39,9 +39,8 @@ const MODEL = 'claude-sonnet-5';
 
 // История, напоминания и память хранятся в этой папке.
 // Локально это просто папка data/ рядом с проектом.
-// В облаке (Railway) сюда можно подключить постоянный диск (Volume) —
-// тогда переменная DATA_DIR в Variables должна указывать на путь монтирования (например /data),
-// и данные не будут стираться при пересборке.
+// На сервере это /data/assistant (переменная DATA_DIR в .env) —
+// обновления кода эту папку не трогают, и каждую ночь с неё делается резервная копия.
 const DATA_DIR = process.env.DATA_DIR || path.resolve('data');
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
 const MAX_HISTORY_MESSAGES = 20; // сколько последних сообщений держать в контексте
