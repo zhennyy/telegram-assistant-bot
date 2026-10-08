@@ -17,6 +17,14 @@ if (!TELEGRAM_TOKEN || !ANTHROPIC_API_KEY) {
 const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true, ...(process.env.TELEGRAM_API_ROOT ? { baseApiUrl: process.env.TELEGRAM_API_ROOT.replace(/\/+$/, '') } : {}) });
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
+// Бот личный: отвечает только хозяйке и только в личной переписке.
+// OWNER_ID — твой Telegram ID (можно переопределить в .env).
+const OWNER_ID = String(process.env.OWNER_ID || '739258026');
+const isOwner = (msg) => msg?.chat?.type === 'private' && String(msg?.from?.id) === OWNER_ID;
+// Обёртка для команд: чужие сообщения молча игнорируются (и не тратят ключ Claude)
+const onCmd = (re, fn) => bot.onText(re, (msg, match) => { if (isOwner(msg)) fn(msg, match); });
+const MAX_FACTS = 100, MAX_FACT_LEN = 500, MAX_REMINDERS = 100, MAX_MSG_LEN = 4000;
+
 // Здесь можно настроить характер и роль ассистента
 const SYSTEM_PROMPT =
   'Ты — личный ассистент пользователя в Telegram. Отвечай кратко, дружелюбно и по делу. ' +
@@ -129,7 +137,7 @@ cron.schedule('* * * * *', () => {
   saveReminders();
 });
 
-bot.onText(/\/start/, (msg) => {
+onCmd(/^\/start\b/, (msg) => {
   bot.sendMessage(
     msg.chat.id,
     'Привет! Я твой личный ассистент на базе Claude. Просто напиши мне, что нужно 🙂\n\n' +
@@ -144,10 +152,11 @@ bot.onText(/\/start/, (msg) => {
   );
 });
 
-bot.onText(/\/remember (.+)/, (msg, match) => {
+onCmd(/^\/remember (.+)$/s, (msg, match) => {
   const chatId = msg.chat.id;
-  const text = match[1];
+  const text = match[1].trim().slice(0, MAX_FACT_LEN);
   const facts = getMemory(chatId);
+  if (facts.length >= MAX_FACTS) return bot.sendMessage(chatId, `В памяти уже ${MAX_FACTS} фактов — удали лишние через /forget`);
 
   const fact = { id: Date.now().toString(36), text };
   facts.push(fact);
@@ -156,7 +165,7 @@ bot.onText(/\/remember (.+)/, (msg, match) => {
   bot.sendMessage(chatId, `Запомнила ✅ (номер: ${fact.id})`);
 });
 
-bot.onText(/\/memory/, (msg) => {
+onCmd(/^\/memory\b/, (msg) => {
   const facts = getMemory(msg.chat.id);
   if (facts.length === 0) {
     bot.sendMessage(msg.chat.id, 'Пока ничего не сохранено. Добавь через /remember текст.');
@@ -166,7 +175,7 @@ bot.onText(/\/memory/, (msg) => {
   bot.sendMessage(msg.chat.id, `Сохранено в памяти:\n${list}`);
 });
 
-bot.onText(/\/forget (\S+)/, (msg, match) => {
+onCmd(/^\/forget (\S+)$/, (msg, match) => {
   const chatId = msg.chat.id;
   const id = match[1];
   const facts = getMemory(chatId);
@@ -181,10 +190,14 @@ bot.onText(/\/forget (\S+)/, (msg, match) => {
   bot.sendMessage(chatId, 'Забыла ✅');
 });
 
-bot.onText(/\/remind (\d{1,2}):(\d{2}) (.+)/, (msg, match) => {
+onCmd(/^\/remind (\d{1,2}):(\d{2}) (.+)$/s, (msg, match) => {
   const hours = match[1].padStart(2, '0');
   const minutes = match[2];
-  const text = match[3];
+  const text = match[3].trim().slice(0, MAX_FACT_LEN);
+  if (reminders.filter((r) => r.chatId === msg.chat.id).length >= MAX_REMINDERS) {
+    bot.sendMessage(msg.chat.id, `Уже ${MAX_REMINDERS} напоминаний — отмени лишние через /cancelremind`);
+    return;
+  }
 
   if (Number(hours) > 23 || Number(minutes) > 59) {
     bot.sendMessage(msg.chat.id, 'Похоже, время некорректно. Формат: /remind 15:30 текст');
@@ -206,7 +219,7 @@ bot.onText(/\/remind (\d{1,2}):(\d{2}) (.+)/, (msg, match) => {
   );
 });
 
-bot.onText(/\/reminders/, (msg) => {
+onCmd(/^\/reminders\b/, (msg) => {
   const own = reminders.filter((r) => r.chatId === msg.chat.id);
   if (own.length === 0) {
     bot.sendMessage(msg.chat.id, 'Активных напоминаний нет.');
@@ -216,7 +229,7 @@ bot.onText(/\/reminders/, (msg) => {
   bot.sendMessage(msg.chat.id, `Активные напоминания:\n${list}`);
 });
 
-bot.onText(/\/cancelremind (\S+)/, (msg, match) => {
+onCmd(/^\/cancelremind (\S+)$/, (msg, match) => {
   const id = match[1];
   const index = reminders.findIndex((r) => r.id === id && r.chatId === msg.chat.id);
   if (index === -1) {
@@ -228,14 +241,15 @@ bot.onText(/\/cancelremind (\S+)/, (msg, match) => {
   bot.sendMessage(msg.chat.id, 'Напоминание отменено ✅');
 });
 
-bot.onText(/\/reset/, (msg) => {
+onCmd(/^\/reset\b/, (msg) => {
   histories[String(msg.chat.id)] = [];
   saveHistories();
   bot.sendMessage(msg.chat.id, 'История диалога очищена ✅');
 });
 
 bot.on('message', async (msg) => {
-  const text = msg.text;
+  if (!isOwner(msg)) return; // чужим не отвечаем
+  const text = msg.text?.slice(0, MAX_MSG_LEN);
   if (!text || text.startsWith('/')) return; // команды обрабатываются отдельно выше
 
   const chatId = msg.chat.id;
