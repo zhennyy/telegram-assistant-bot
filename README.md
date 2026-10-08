@@ -32,7 +32,10 @@ cp .env.example .env
 ```
 TELEGRAM_BOT_TOKEN=твой_токен_от_botfather
 ANTHROPIC_API_KEY=твой_ключ_anthropic
+OWNER_ID=твой_telegram_id
 ```
+
+На сервере ещё `DATA_DIR` (папка для памяти и напоминаний) и, если нужен прокси, `ANTHROPIC_BASE_URL` / `TELEGRAM_API_ROOT` — они подробно описаны в `.env.example`.
 
 ## Запуск
 
@@ -68,5 +71,3 @@ npm start
 - обновление: `git push`, затем на сервере `bfa update`; логи — `bfa logs assistant`.
 
 Установка сервера — в [BotForAll/deploy/README.md](https://github.com/zhennyy/botforall/blob/main/deploy/README.md).
-
-# telegram-assistant-bot

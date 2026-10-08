@@ -275,6 +275,11 @@ async function chat(msg) {
       .map((block) => block.text)
       .join('\n');
 
+    if (!reply.trim()) { // пустой ответ не сохраняем — иначе история сломается
+      history.pop();
+      await send(chatId, 'Claude ничего не ответил 🤷 Попробуй переформулировать.');
+      return;
+    }
     history.push({ role: 'assistant', content: reply });
     saveHistories();
 
@@ -305,5 +310,7 @@ bot.catch((err) => console.error('Ошибка бота:', err.message));
 
 bot.launch().catch((e) => { console.error('Не удалось подключиться к Telegram:', e.message); process.exit(1); });
 console.log('Бот запущен и слушает сообщения...');
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+// при остановке гасим и бота, и cron-напоминания, иначе процесс не завершится
+const shutdown = (sig) => { bot.stop(sig); process.exit(0); };
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
