@@ -1,0 +1,60 @@
+// Схема базы личного ассистента для Prisma.
+// Имена полей совпадают с колонками в базе, а сама структура меняется SQL-миграциями
+// из prisma/migrations (их запускает src/database/migrations.js).
+// Связей между моделями нет: всё привязано к chat_id — Telegram ID чата.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/database/generated"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// История диалога с Claude: последние сообщения каждого чата (старые удаляются)
+model HistoryMessage {
+  id         Int    @id @default(autoincrement())
+  chat_id    Int
+  role       String // 'user' или 'assistant'
+  content    String
+  created_at String @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@index([chat_id, id], map: "history_messages_chat")
+  @@map("history_messages")
+}
+
+// Постоянная память — факты о пользователе, которые не пропадают после /reset
+model MemoryFact {
+  id         Int    @id @default(autoincrement())
+  code       String // номер, который видит пользователь (для /forget)
+  chat_id    Int
+  text       String
+  created_at String @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([chat_id, code], map: "memory_facts_chat_code")
+  @@map("memory_facts")
+}
+
+// Напоминания: срабатывают один раз в ближайшее время ЧЧ:ММ, затем удаляются
+model Reminder {
+  id         Int    @id @default(autoincrement())
+  code       String // номер, который видит пользователь (для /cancelremind)
+  chat_id    Int
+  time       String // 'ЧЧ:ММ'
+  text       String
+  created_at String @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@unique([chat_id, code], map: "reminders_chat_code")
+  @@index([time], map: "reminders_time")
+  @@map("reminders")
+}
+
+// Какие JSON-файлы старой версии уже перенесены в базу (перенос — один раз)
+model JsonImport {
+  file_name   String @id
+  records     Int
+  imported_at String @default(dbgenerated("CURRENT_TIMESTAMP"))
+
+  @@map("json_imports")
+}

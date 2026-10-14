@@ -1,5 +1,8 @@
 node_modules/
 .env
 data/
+*.db
+*.db-journal
+src/database/generated/
 .DS_Store
 npm-debug.log
