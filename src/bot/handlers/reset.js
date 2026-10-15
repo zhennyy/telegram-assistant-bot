@@ -7,6 +7,4 @@ async function resetHistory(context) {
   return replyText(context, 'История диалога очищена ✅');
 }
 
-export const resetCommands = [
-  { pattern: /^\/reset\b/, handle: resetHistory },
-];
+export const resetCommands = [{ pattern: /^\/reset\b/, handle: resetHistory }];

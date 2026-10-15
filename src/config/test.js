@@ -7,10 +7,17 @@ import path from 'node:path';
 const PROJECT_DIR = path.join(import.meta.dirname, '..', '..');
 
 test('без TELEGRAM_BOT_TOKEN и ANTHROPIC_API_KEY — понятная ошибка и выход', () => {
-  const environment = { ...process.env, TELEGRAM_BOT_TOKEN: '', ANTHROPIC_API_KEY: '', DOTENV_CONFIG_PATH: '/nonexistent/.env' };
+  const environment = {
+    ...process.env,
+    TELEGRAM_BOT_TOKEN: '',
+    ANTHROPIC_API_KEY: '',
+    DOTENV_CONFIG_PATH: '/nonexistent/.env',
+  };
   assert.throws(
     () => execFileSync(process.execPath, ['index.js'], { cwd: PROJECT_DIR, env: environment, stdio: 'pipe' }),
-    (processError) => processError.status === 1 && processError.stderr.toString().includes('Ошибка: заполни TELEGRAM_BOT_TOKEN и ANTHROPIC_API_KEY в файле .env'),
+    (processError) =>
+      processError.status === 1 &&
+      processError.stderr.toString().includes('Ошибка: заполни TELEGRAM_BOT_TOKEN и ANTHROPIC_API_KEY в файле .env'),
   );
 });
 

@@ -11,7 +11,11 @@ const environment = { ...process.env };
 if (!environment.PRISMA_SCHEMA_ENGINE_BINARY) environment.PRISMA_SCHEMA_ENGINE_BINARY = process.execPath;
 
 const prismaCli = require.resolve('prisma/build/index.js');
-execFileSync(process.execPath, [prismaCli, 'generate', '--schema', path.join(import.meta.dirname, '..', 'prisma', 'schema.prisma')], {
-  stdio: 'inherit',
-  env: environment,
-});
+execFileSync(
+  process.execPath,
+  [prismaCli, 'generate', '--schema', path.join(import.meta.dirname, '..', 'prisma', 'schema.prisma')],
+  {
+    stdio: 'inherit',
+    env: environment,
+  },
+);

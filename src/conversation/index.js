@@ -14,7 +14,8 @@ export async function answerMessage(chatId, text) {
 
   const reply = await askClaude(buildSystemPrompt(facts), history);
 
-  if (!reply.trim()) { // пустой ответ не сохраняем — иначе история сломается
+  if (!reply.trim()) {
+    // пустой ответ не сохраняем — иначе история сломается
     await deleteHistoryMessage(userMessage.id);
     return null;
   }

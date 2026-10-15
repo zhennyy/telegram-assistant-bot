@@ -39,8 +39,19 @@ function memoryRows(memory) {
 function reminderRows(reminders) {
   if (!Array.isArray(reminders)) return [];
   return reminders
-    .filter((reminder) => isText(reminder?.id) && toChatId(reminder.chatId) !== null && /^\d{2}:\d{2}$/.test(reminder.time) && isText(reminder.text))
-    .map((reminder) => ({ chat_id: toChatId(reminder.chatId), code: reminder.id, time: reminder.time, text: reminder.text }));
+    .filter(
+      (reminder) =>
+        isText(reminder?.id) &&
+        toChatId(reminder.chatId) !== null &&
+        /^\d{2}:\d{2}$/.test(reminder.time) &&
+        isText(reminder.text),
+    )
+    .map((reminder) => ({
+      chat_id: toChatId(reminder.chatId),
+      code: reminder.id,
+      time: reminder.time,
+      text: reminder.text,
+    }));
 }
 
 // Номер (code) уникален в пределах чата: строки, которые уже есть в базе или повторяются в файле, пропускаем

@@ -9,7 +9,10 @@
     "start": "node index.js",
     "test": "node --test --test-force-exit \"src/**/test.js\"",
     "postinstall": "node scripts/generate-prisma-client.js",
-    "db:generate": "node scripts/generate-prisma-client.js"
+    "db:generate": "node scripts/generate-prisma-client.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",
@@ -27,5 +30,11 @@
   "overrides": {
     "deepmerge-ts": "^8.0.0",
     "mysql2": "^3.23.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10"
   }
 }

@@ -20,7 +20,10 @@ const OLD_FILES = {
     ],
   },
   'memory.json': {
-    [BIG_CHAT_ID]: [{ id: 'mgq3x1k2', text: 'у меня аллергия на орехи' }, { id: 'mgq3x9zz', text: 'кошку зовут Ася' }],
+    [BIG_CHAT_ID]: [
+      { id: 'mgq3x1k2', text: 'у меня аллергия на орехи' },
+      { id: 'mgq3x9zz', text: 'кошку зовут Ася' },
+    ],
   },
   'reminders.json': [
     { id: 'mgq4a0b1', chatId: BIG_CHAT_ID, time: '15:30', text: 'Позвонить маме' },
@@ -48,27 +51,53 @@ test('миграции: применяются один раз и записыв
   runMigrations(databasePath);
   runMigrations(databasePath);
   const connection = new Database(databasePath);
-  assert.deepEqual(connection.prepare('SELECT name FROM _app_migrations').all().map((row) => row.name), ['001_initial.sql']);
-  const tableNames = connection.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").all().map((row) => row.name);
+  assert.deepEqual(
+    connection
+      .prepare('SELECT name FROM _app_migrations')
+      .all()
+      .map((row) => row.name),
+    ['001_initial.sql'],
+  );
+  const tableNames = connection
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+    .all()
+    .map((row) => row.name);
   assert.deepEqual(tableNames, ['_app_migrations', 'history_messages', 'json_imports', 'memory_facts', 'reminders']);
   connection.close();
 });
 
 test('перенос JSON: история, память и напоминания на месте, номера сохранены', async () => {
   const history = await database.historyMessage.findMany({ where: { chat_id: BIG_CHAT_ID }, orderBy: { id: 'asc' } });
-  assert.deepEqual(history.map((message) => [message.role, message.content]), [
-    ['user', 'Привет'], ['assistant', 'Привет! Чем помочь?'], ['user', 'Напомни про маму'],
-  ]);
+  assert.deepEqual(
+    history.map((message) => [message.role, message.content]),
+    [
+      ['user', 'Привет'],
+      ['assistant', 'Привет! Чем помочь?'],
+      ['user', 'Напомни про маму'],
+    ],
+  );
   const facts = await database.memoryFact.findMany({ orderBy: { id: 'asc' } });
-  assert.deepEqual(facts.map((fact) => [fact.chat_id, fact.code, fact.text]), [
-    [BIG_CHAT_ID, 'mgq3x1k2', 'у меня аллергия на орехи'], [BIG_CHAT_ID, 'mgq3x9zz', 'кошку зовут Ася'],
-  ]);
+  assert.deepEqual(
+    facts.map((fact) => [fact.chat_id, fact.code, fact.text]),
+    [
+      [BIG_CHAT_ID, 'mgq3x1k2', 'у меня аллергия на орехи'],
+      [BIG_CHAT_ID, 'mgq3x9zz', 'кошку зовут Ася'],
+    ],
+  );
   const reminders = await database.reminder.findMany();
-  assert.deepEqual(reminders.map((reminder) => [reminder.chat_id, reminder.code, reminder.time, reminder.text]), [
-    [BIG_CHAT_ID, 'mgq4a0b1', '15:30', 'Позвонить маме'],
-  ]);
+  assert.deepEqual(
+    reminders.map((reminder) => [reminder.chat_id, reminder.code, reminder.time, reminder.text]),
+    [[BIG_CHAT_ID, 'mgq4a0b1', '15:30', 'Позвонить маме']],
+  );
   const imports = await database.jsonImport.findMany({ orderBy: { file_name: 'asc' } });
-  assert.deepEqual(imports.map((jsonImport) => [jsonImport.file_name, jsonImport.records]), [['history.json', 3], ['memory.json', 2], ['reminders.json', 1]]);
+  assert.deepEqual(
+    imports.map((jsonImport) => [jsonImport.file_name, jsonImport.records]),
+    [
+      ['history.json', 3],
+      ['memory.json', 2],
+      ['reminders.json', 1],
+    ],
+  );
 });
 
 test('перенос JSON: повторный запуск ничего не дублирует, файлы не тронуты', async () => {
@@ -90,7 +119,10 @@ test('перенос JSON: испорченный файл пропускает�
   assert.deepEqual(await importLegacyJsonFiles(otherDirectory), {});
   assert.equal(await database.memoryFact.count(), 0);
 
-  fs.writeFileSync(path.join(otherDirectory, 'memory.json'), JSON.stringify({ 1001: [{ id: 'x1', text: 'люблю закаты' }] }));
+  fs.writeFileSync(
+    path.join(otherDirectory, 'memory.json'),
+    JSON.stringify({ 1001: [{ id: 'x1', text: 'люблю закаты' }] }),
+  );
   assert.deepEqual(await importLegacyJsonFiles(otherDirectory), { 'memory.json': 1 });
   assert.equal((await database.memoryFact.findFirst()).text, 'люблю закаты');
 });

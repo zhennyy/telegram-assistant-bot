@@ -1,0 +1,6 @@
+node_modules/
+src/database/generated/
+data/
+package-lock.json
+*.md
+*.sql

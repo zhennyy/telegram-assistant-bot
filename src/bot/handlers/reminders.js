@@ -1,13 +1,20 @@
 // Напоминания: /remind ЧЧ:ММ текст, /reminders, /cancelremind ID
 import { replyText } from '../send.js';
-import { MAX_REMINDERS, MAX_REMINDER_LENGTH, addReminder, cancelReminder, countReminders, getReminders } from '../../reminders/index.js';
+import {
+  MAX_REMINDERS,
+  MAX_REMINDER_LENGTH,
+  addReminder,
+  cancelReminder,
+  countReminders,
+  getReminders,
+} from '../../reminders/index.js';
 
 async function createReminder(context, commandMatch) {
   const chatId = context.chat.id;
   const hours = commandMatch[1].padStart(2, '0');
   const minutes = commandMatch[2];
   const text = commandMatch[3].trim().slice(0, MAX_REMINDER_LENGTH);
-  if (await countReminders(chatId) >= MAX_REMINDERS) {
+  if ((await countReminders(chatId)) >= MAX_REMINDERS) {
     return replyText(context, `Уже ${MAX_REMINDERS} напоминаний — отмени лишние через /cancelremind`);
   }
   if (Number(hours) > 23 || Number(minutes) > 59) {

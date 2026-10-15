@@ -20,10 +20,12 @@ export const telegramCalls = [];
 let messageCounter = 5000;
 Telegram.prototype.callApi = async function fakeCallApi(method, payload) {
   telegramCalls.push({ method, payload });
-  if (method === 'sendMessage') return { message_id: ++messageCounter, chat: { id: payload.chat_id }, date: 0, text: payload.text };
+  if (method === 'sendMessage')
+    return { message_id: ++messageCounter, chat: { id: payload.chat_id }, date: 0, text: payload.text };
   return true;
 };
-export const sentTo = (chatId) => telegramCalls.filter((call) => call.method === 'sendMessage' && String(call.payload.chat_id) === String(chatId));
+export const sentTo = (chatId) =>
+  telegramCalls.filter((call) => call.method === 'sendMessage' && String(call.payload.chat_id) === String(chatId));
 export const lastTextTo = (chatId) => sentTo(chatId).at(-1)?.payload.text;
 
 // ---- подставной Claude: запоминаем запросы, отвечаем тем, что задал тест ----
@@ -57,7 +59,9 @@ export function sendText(bot, fromId, text, chatType = 'private') {
   return bot.handleUpdate({
     update_id: ++updateCounter,
     message: {
-      message_id: updateCounter, date: Math.floor(Date.now() / 1000), text,
+      message_id: updateCounter,
+      date: Math.floor(Date.now() / 1000),
+      text,
       from: { id: fromId, is_bot: false, first_name: 'Женя' },
       chat: chatType === 'private' ? { id: fromId, type: 'private' } : { id: -100500, type: chatType, title: 'Группа' },
       ...(commandMatch ? { entities: [{ type: 'bot_command', offset: 0, length: commandMatch[0].length }] } : {}),

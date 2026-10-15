@@ -5,7 +5,7 @@ import { MAX_FACTS, MAX_FACT_LENGTH, addFact, countFacts, deleteFact, getFacts }
 async function rememberFact(context, commandMatch) {
   const chatId = context.chat.id;
   const text = commandMatch[1].trim().slice(0, MAX_FACT_LENGTH);
-  if (await countFacts(chatId) >= MAX_FACTS) {
+  if ((await countFacts(chatId)) >= MAX_FACTS) {
     return replyText(context, `В памяти уже ${MAX_FACTS} фактов — удали лишние через /forget`);
   }
   const fact = await addFact(chatId, text);

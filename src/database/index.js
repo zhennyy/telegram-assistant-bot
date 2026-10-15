@@ -22,19 +22,25 @@ export function connect() {
 }
 
 // Обращение database.reminder.findMany(...) идёт в активную транзакцию, если она есть, иначе — в общий клиент
-export const database = new Proxy({}, {
-  get(_target, propertyName) {
-    const activeClient = transactionStorage.getStore() || connect();
-    const value = activeClient[propertyName];
-    return typeof value === 'function' ? value.bind(activeClient) : value;
+export const database = new Proxy(
+  {},
+  {
+    get(_target, propertyName) {
+      const activeClient = transactionStorage.getStore() || connect();
+      const value = activeClient[propertyName];
+      return typeof value === 'function' ? value.bind(activeClient) : value;
+    },
   },
-});
+);
 
 // Всё внутри work выполняется одной транзакцией: либо целиком, либо никак.
 // Вложенный вызов просто продолжает внешнюю транзакцию.
 export async function runInTransaction(work) {
   if (transactionStorage.getStore()) return work();
-  return connect().$transaction((transactionClient) => transactionStorage.run(transactionClient, work), { timeout: 30000, maxWait: 30000 });
+  return connect().$transaction((transactionClient) => transactionStorage.run(transactionClient, work), {
+    timeout: 30000,
+    maxWait: 30000,
+  });
 }
 
 export async function disconnect() {

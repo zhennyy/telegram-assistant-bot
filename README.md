@@ -100,12 +100,16 @@ const facts = await database.memoryFact.findMany({ where: { chat_id: chatId }, o
 ### Проверка
 
 ```bash
-npm test
+npm test              # автотесты
+npm run lint          # ESLint: ошибки и понятные имена (без однобуквенных переменных)
+npm run format:check  # Prettier: единый стиль кода (npm run format — поправить)
 ```
 
 19 автотестов: команды бота (`/start`, память, напоминания, `/reset`), разговор с Claude (история, лимит в 20 сообщений,
 пустой ответ, ошибка API), «только хозяйка и только личка», напоминания по расписанию, миграции и перенос старых JSON-файлов —
 через подставные Telegram и Claude, без сети. Тесты лежат рядом с кодом — файл `test.js` в папке модуля; `npm test` находит их сам.
+
+На каждый push и pull request GitHub Actions запускает Prettier, ESLint и тесты (`.github/workflows/ci.yml`).
 
 ## Работа 24/7 на своём сервере (VPS)
 

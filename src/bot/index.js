@@ -11,12 +11,15 @@ import { chatWithClaude } from './handlers/chat.js';
 const COMMANDS = [...startCommands, ...memoryCommands, ...reminderCommands, ...resetCommands];
 
 // TELEGRAM_API_ROOT — посредник для Telegram (нужен, если сервер в России)
-const telegramOptions = config.telegramApiRoot ? { telegram: { apiRoot: config.telegramApiRoot.replace(/\/*$/, '/') } } : {};
+const telegramOptions = config.telegramApiRoot
+  ? { telegram: { apiRoot: config.telegramApiRoot.replace(/\/*$/, '/') } }
+  : {};
 export const bot = new Telegraf(config.telegramToken, telegramOptions);
 
 // Бот личный: отвечает только хозяйке и только в личной переписке.
 // Чужие сообщения молча игнорируются (и не тратят ключ Claude).
-export const isOwnerMessage = (message) => message?.chat?.type === 'private' && String(message?.from?.id) === config.ownerId;
+export const isOwnerMessage = (message) =>
+  message?.chat?.type === 'private' && String(message?.from?.id) === config.ownerId;
 
 // Единая точка входа: команды — по списку, остальное — в Claude
 bot.on('text', async (context) => {

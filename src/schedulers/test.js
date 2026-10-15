@@ -23,7 +23,10 @@ test('напоминание срабатывает в своё время, од
 
   await sendDueReminders(bot.telegram, atHalfPastThree);
   assert.equal(lastTextTo(OWNER_ID), '⏰ Напоминание: Позвонить маме');
-  assert.deepEqual((await database.reminder.findMany()).map((reminder) => reminder.code), ['a2']);
+  assert.deepEqual(
+    (await database.reminder.findMany()).map((reminder) => reminder.code),
+    ['a2'],
+  );
 
   const sentBefore = testHelpers.sentTo(OWNER_ID).length;
   await sendDueReminders(bot.telegram, atHalfPastThree);
@@ -39,7 +42,8 @@ test('ошибка отправки не мешает остальным нап�
     ],
   });
   const failingTelegram = {
-    sendMessage: (chatId, text) => (chatId === 42 ? Promise.reject(new Error('Forbidden: bot was blocked')) : bot.telegram.sendMessage(chatId, text)),
+    sendMessage: (chatId, text) =>
+      chatId === 42 ? Promise.reject(new Error('Forbidden: bot was blocked')) : bot.telegram.sendMessage(chatId, text),
   };
   await sendDueReminders(failingTelegram, new Date(2026, 9, 14, 8, 0));
   assert.equal(lastTextTo(OWNER_ID), '⏰ Напоминание: Зарядка');

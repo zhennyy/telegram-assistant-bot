@@ -12,6 +12,4 @@ const WELCOME_TEXT =
   '/memory — что сохранено в памяти\n' +
   '/forget ID — удалить факт из памяти';
 
-export const startCommands = [
-  { pattern: /^\/start\b/, handle: (context) => replyText(context, WELCOME_TEXT) },
-];
+export const startCommands = [{ pattern: /^\/start\b/, handle: (context) => replyText(context, WELCOME_TEXT) }];

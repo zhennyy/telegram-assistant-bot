@@ -48,7 +48,10 @@ test('память: /remember, /memory, факты попадают в сист�
   assert.equal(lastTextTo(OWNER_ID), `Сохранено в памяти:\n${fact.code} — у меня аллергия на орехи`);
 
   await say('Что приготовить?');
-  assert.match(claudeRequests.at(-1).system, /Важные факты о пользователе \(учитывай их в ответах\):\n- у меня аллергия на орехи$/);
+  assert.match(
+    claudeRequests.at(-1).system,
+    /Важные факты о пользователе \(учитывай их в ответах\):\n- у меня аллергия на орехи$/,
+  );
 
   await say('/forget nope');
   assert.equal(lastTextTo(OWNER_ID), 'Не нашла факт с таким номером. Посмотри /memory.');
@@ -58,14 +61,23 @@ test('память: /remember, /memory, факты попадают в сист�
 });
 
 test('память: не больше 100 фактов, текст факта — до 500 символов', async () => {
-  await database.memoryFact.createMany({ data: Array.from({ length: 100 }, (_, index) => ({ chat_id: OWNER_ID, code: `f${index}`, text: 'факт '.repeat(100) })) });
+  await database.memoryFact.createMany({
+    data: Array.from({ length: 100 }, (_, index) => ({
+      chat_id: OWNER_ID,
+      code: `f${index}`,
+      text: 'факт '.repeat(100),
+    })),
+  });
   await say('/remember ещё один');
   assert.equal(lastTextTo(OWNER_ID), 'В памяти уже 100 фактов — удали лишние через /forget');
 
   // 100 фактов по 500 символов не влезают в одно сообщение Telegram — список приходит частями
   const callsBefore = testHelpers.sentTo(OWNER_ID).length;
   await say('/memory');
-  const parts = testHelpers.sentTo(OWNER_ID).slice(callsBefore).map((call) => call.payload.text);
+  const parts = testHelpers
+    .sentTo(OWNER_ID)
+    .slice(callsBefore)
+    .map((call) => call.payload.text);
   assert.ok(parts.length > 1);
   assert.ok(parts.every((part) => part.length <= 4096));
   assert.match(parts[0], /^Сохранено в памяти:\nf0 — /);
@@ -99,7 +111,14 @@ test('напоминания: /remind, проверка времени, /reminde
 });
 
 test('напоминания: не больше 100 на чат', async () => {
-  await database.reminder.createMany({ data: Array.from({ length: 100 }, (_, index) => ({ chat_id: OWNER_ID, code: `r${index}`, time: '10:00', text: 'дело' })) });
+  await database.reminder.createMany({
+    data: Array.from({ length: 100 }, (_, index) => ({
+      chat_id: OWNER_ID,
+      code: `r${index}`,
+      time: '10:00',
+      text: 'дело',
+    })),
+  });
   await say('/remind 10:00 ещё');
   assert.equal(lastTextTo(OWNER_ID), 'Уже 100 напоминаний — отмени лишние через /cancelremind');
   await database.reminder.deleteMany();
@@ -110,14 +129,19 @@ test('разговор: ответ Claude, история, /reset', async () => 
   claudeRequests.length = 0;
   await say('Привет');
   assert.equal(lastTextTo(OWNER_ID), 'Ответ на «Привет»');
-  assert.ok(testHelpers.telegramCalls.some((call) => call.method === 'sendChatAction' && call.payload.action === 'typing'));
+  assert.ok(
+    testHelpers.telegramCalls.some((call) => call.method === 'sendChatAction' && call.payload.action === 'typing'),
+  );
   const request = claudeRequests.at(-1);
   assert.equal(request.model, 'claude-sonnet-5');
   assert.equal(request.max_tokens, 1024);
   assert.deepEqual(request.messages, [{ role: 'user', content: 'Привет' }]);
 
   await say('Как дела?');
-  assert.deepEqual(claudeRequests.at(-1).messages.map((message) => message.content), ['Привет', 'Ответ на «Привет»', 'Как дела?']);
+  assert.deepEqual(
+    claudeRequests.at(-1).messages.map((message) => message.content),
+    ['Привет', 'Ответ на «Привет»', 'Как дела?'],
+  );
 
   await say('/reset');
   assert.equal(lastTextTo(OWNER_ID), 'История диалога очищена ✅');
@@ -132,7 +156,10 @@ test('разговор: в контексте последние 20 сообще
   assert.equal(messages[0].role, 'user');
   assert.ok(messages.length <= 20);
   assert.equal(messages.at(-1).content, 'Сообщение 15');
-  assert.ok(await database.historyMessage.count({ where: { chat_id: OWNER_ID } }) <= 20, 'старые сообщения удаляются из базы');
+  assert.ok(
+    (await database.historyMessage.count({ where: { chat_id: OWNER_ID } })) <= 20,
+    'старые сообщения удаляются из базы',
+  );
 });
 
 test('разговор: пустой ответ не сохраняется, ошибка Claude — понятное сообщение', async () => {
@@ -142,13 +169,19 @@ test('разговор: пустой ответ не сохраняется, о�
   assert.equal(lastTextTo(OWNER_ID), 'Claude ничего не ответил 🤷 Попробуй переформулировать.');
   assert.equal(await database.historyMessage.count({ where: { chat_id: OWNER_ID } }), 0);
 
-  claude.answer = () => { throw Object.assign(new Error('overloaded'), { status: 529 }); };
+  claude.answer = () => {
+    throw Object.assign(new Error('overloaded'), { status: 529 });
+  };
   await say('Ты тут?');
   assert.equal(lastTextTo(OWNER_ID), 'Упс, что-то пошло не так при обращении к Claude. Попробуй ещё раз чуть позже.');
 
   claude.answer = (request) => `Ответ на «${request.messages.at(-1).content}»`;
   await say('А сейчас?');
-  assert.deepEqual(claudeRequests.at(-1).messages.map((message) => message.content), ['Ты тут?', 'А сейчас?'], 'сообщение с ошибкой остаётся в истории, как раньше');
+  assert.deepEqual(
+    claudeRequests.at(-1).messages.map((message) => message.content),
+    ['Ты тут?', 'А сейчас?'],
+    'сообщение с ошибкой остаётся в истории, как раньше',
+  );
 });
 
 test('длинный текст делится на части по переводу строки', () => {
